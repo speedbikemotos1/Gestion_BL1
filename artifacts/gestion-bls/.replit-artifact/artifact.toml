@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Gestion BLs"
+description = "A focused French-language dashboard for SPEED BIKE MOTOS to track K-TRADING GLOBAL delivery notes, payments, automatic oldest-first allocation, supplier credit, and after-sales settlements."
+version = "1.0.0"
+id = "artifacts/gestion-bls"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25440
+
+[services.development]
+run = "pnpm --filter @workspace/gestion-bls run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/gestion-bls", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/gestion-bls/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25440"
+BASE_PATH = "/"

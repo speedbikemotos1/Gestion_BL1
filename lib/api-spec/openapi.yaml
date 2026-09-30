@@ -1,0 +1,521 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Gestion BLs API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: dashboard
+    description: Dashboard summaries
+  - name: invoices
+    description: Delivery notes
+  - name: payments
+    description: Supplier payments
+  - name: imports
+    description: SQL imports
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [dashboard]
+      summary: Get dashboard summary
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+  /invoices:
+    get:
+      operationId: listInvoices
+      tags: [invoices]
+      summary: List active delivery notes
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PaymentStatus"
+      responses:
+        "200":
+          description: Delivery notes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Invoice"
+  /invoices/{id}:
+    get:
+      operationId: getInvoice
+      tags: [invoices]
+      summary: Get a delivery note with products and allocations
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+      responses:
+        "200":
+          description: Delivery note detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /invoices/{id}/after-sales:
+    post:
+      operationId: settleInvoiceAfterSales
+      tags: [invoices]
+      summary: Settle a delivery note through after-sales service
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AfterSalesInput"
+      responses:
+        "200":
+          description: Settled delivery note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: cancelInvoiceAfterSales
+      tags: [invoices]
+      summary: Cancel after-sales settlement
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+      responses:
+        "200":
+          description: Recalculated delivery note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /payments:
+    get:
+      operationId: listPayments
+      tags: [payments]
+      summary: List supplier payments
+      responses:
+        "200":
+          description: Payment history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Payment"
+    post:
+      operationId: createPayment
+      tags: [payments]
+      summary: Record a payment and allocate it oldest-first
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentInput"
+      responses:
+        "201":
+          description: Payment and resulting allocations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /payments/{id}:
+    get:
+      operationId: getPayment
+      tags: [payments]
+      summary: Get payment allocation details
+      parameters:
+        - $ref: "#/components/parameters/PaymentId"
+      responses:
+        "200":
+          description: Payment detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updatePayment
+      tags: [payments]
+      summary: Update a payment and recalculate all allocations
+      parameters:
+        - $ref: "#/components/parameters/PaymentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentInput"
+      responses:
+        "200":
+          description: Updated payment and resulting allocations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deletePayment
+      tags: [payments]
+      summary: Delete a payment and recalculate all allocations
+      parameters:
+        - $ref: "#/components/parameters/PaymentId"
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /imports/sql:
+    post:
+      operationId: importSql
+      tags: [imports]
+      summary: Import delivery notes from SQL text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SqlImportInput"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+components:
+  parameters:
+    InvoiceId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    PaymentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    PaymentStatus:
+      type: string
+      enum: [PAID, UNPAID, PARTLY_PAID, AFTER_SALES, UNSPECIFIED]
+    SettlementType:
+      type: string
+      enum: [NONE, PAYMENT, AFTER_SALES]
+    PaymentMethod:
+      type: string
+      enum: [Virement, Chèque, Espèces, Autre]
+    Invoice:
+      type: object
+      properties:
+        id: { type: integer }
+        invoiceNumber: { type: string }
+        invoiceDate: { type: string, format: date }
+        supplier: { type: string }
+        customer: { type: string }
+        documentType: { type: string }
+        totalHt: { type: number }
+        totalVat: { type: number }
+        fiscalStamp: { type: number }
+        totalTtc: { type: number }
+        sourcePaymentStatus: { type: ["string", "null"] }
+        paymentStatus:
+          $ref: "#/components/schemas/PaymentStatus"
+        amountPaid: { type: number }
+        amountRemaining: { type: number }
+        settlementType:
+          $ref: "#/components/schemas/SettlementType"
+        settlementComment: { type: ["string", "null"] }
+        settledAt: { type: ["string", "null"], format: date-time }
+        notes: { type: ["string", "null"] }
+      required:
+        - id
+        - invoiceNumber
+        - invoiceDate
+        - supplier
+        - customer
+        - documentType
+        - totalHt
+        - totalVat
+        - fiscalStamp
+        - totalTtc
+        - sourcePaymentStatus
+        - paymentStatus
+        - amountPaid
+        - amountRemaining
+        - settlementType
+        - settlementComment
+        - settledAt
+        - notes
+    InvoiceLine:
+      type: object
+      properties:
+        id: { type: integer }
+        invoiceId: { type: integer }
+        lineNumber: { type: integer }
+        productReference: { type: ["string", "null"] }
+        productDescription: { type: string }
+        quantity: { type: number }
+        unitHt: { type: ["number", "null"] }
+        discountPercent: { type: number }
+        lineNetHt: { type: number }
+        vatRate: { type: number }
+        lineTtc: { type: number }
+        notes: { type: ["string", "null"] }
+      required:
+        - id
+        - invoiceId
+        - lineNumber
+        - productReference
+        - productDescription
+        - quantity
+        - unitHt
+        - discountPercent
+        - lineNetHt
+        - vatRate
+        - lineTtc
+        - notes
+    Allocation:
+      type: object
+      properties:
+        id: { type: integer }
+        paymentId: { type: integer }
+        invoiceId: { type: integer }
+        invoiceNumber: { type: string }
+        amountAllocated: { type: number }
+        paymentDate: { type: string, format: date }
+        paymentReference: { type: ["string", "null"] }
+      required:
+        - id
+        - paymentId
+        - invoiceId
+        - invoiceNumber
+        - amountAllocated
+        - paymentDate
+        - paymentReference
+    Payment:
+      type: object
+      properties:
+        id: { type: integer }
+        paymentDate: { type: string, format: date }
+        amount: { type: number }
+        paymentMethod:
+          type: ["string", "null"]
+        reference: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        allocatedAmount: { type: number }
+        creditRemaining: { type: number }
+        allocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Allocation"
+      required:
+        - id
+        - paymentDate
+        - amount
+        - paymentMethod
+        - reference
+        - notes
+        - allocatedAmount
+        - creditRemaining
+        - allocations
+    InvoiceDetail:
+      allOf:
+        - $ref: "#/components/schemas/Invoice"
+        - type: object
+          properties:
+            lines:
+              type: array
+              items:
+                $ref: "#/components/schemas/InvoiceLine"
+            allocations:
+              type: array
+              items:
+                $ref: "#/components/schemas/Allocation"
+          required: [lines, allocations]
+    Dashboard:
+      type: object
+      properties:
+        invoiceCount: { type: integer }
+        totalTtc: { type: number }
+        totalPaid: { type: number }
+        remaining: { type: number }
+        supplierCredit: { type: number }
+        totalHt: { type: number }
+        totalVat: { type: number }
+        fiscalStamp: { type: number }
+        totalUnits: { type: number }
+        productLineCount: { type: integer }
+        counts:
+          type: object
+          properties:
+            paid: { type: integer }
+            partlyPaid: { type: integer }
+            unpaid: { type: integer }
+            afterSales: { type: integer }
+            unspecified: { type: integer }
+          required: [paid, partlyPaid, unpaid, afterSales, unspecified]
+        validation:
+          type: object
+          properties:
+            expectedInvoiceCount: { type: integer }
+            expectedLineCount: { type: integer }
+            expectedTotalUnits: { type: number }
+            expectedTotalHt: { type: number }
+            expectedTotalVat: { type: number }
+            expectedFiscalStamp: { type: number }
+            expectedTotalTtc: { type: number }
+            warnings:
+              type: array
+              items: { type: string }
+          required:
+            - expectedInvoiceCount
+            - expectedLineCount
+            - expectedTotalUnits
+            - expectedTotalHt
+            - expectedTotalVat
+            - expectedFiscalStamp
+            - expectedTotalTtc
+            - warnings
+      required:
+        - invoiceCount
+        - totalTtc
+        - totalPaid
+        - remaining
+        - supplierCredit
+        - totalHt
+        - totalVat
+        - fiscalStamp
+        - totalUnits
+        - productLineCount
+        - counts
+        - validation
+    PaymentInput:
+      type: object
+      properties:
+        paymentDate: { type: string, format: date }
+        amount: { type: number, exclusiveMinimum: 0 }
+        paymentMethod:
+          type: ["string", "null"]
+        reference: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+      required: [paymentDate, amount]
+    PaymentResult:
+      type: object
+      properties:
+        payment:
+          $ref: "#/components/schemas/Payment"
+        dashboard:
+          $ref: "#/components/schemas/Dashboard"
+      required: [payment, dashboard]
+    AfterSalesInput:
+      type: object
+      properties:
+        comment: { type: string }
+      required: [comment]
+    SqlImportInput:
+      type: object
+      properties:
+        sqlText: { type: string, minLength: 1 }
+      required: [sqlText]
+    ImportResult:
+      type: object
+      properties:
+        importedInvoices: { type: integer }
+        importedLines: { type: integer }
+        duplicateInvoices: { type: integer }
+        totalUnits: { type: number }
+        totalHt: { type: number }
+        totalVat: { type: number }
+        fiscalStamp: { type: number }
+        totalTtc: { type: number }
+        message: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+      required:
+        - importedInvoices
+        - importedLines
+        - duplicateInvoices
+        - totalUnits
+        - totalHt
+        - totalVat
+        - fiscalStamp
+        - totalTtc
+        - message
+        - warnings
+
